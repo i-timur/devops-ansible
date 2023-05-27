@@ -1,0 +1,39 @@
+---
+- name: Создание пользователя и настройка сервера
+  hosts: demo
+  become: true
+
+  tasks:
+    - name: Создание пользователя
+      user:
+        name: myusr
+        state: present
+
+    - name: Копирование публичного ключа SSH
+      authorized_key:
+        user: myusr
+        key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+        state: present
+    # Как я не пытался выключить авторизацию по паролю, она не выключается, но по сути это должно сработать для случаев, где есть единственная строка "PasswordAuthentication yes"
+    - name: Отключение авторизации по паролю
+      lineinfile:
+        dest: /etc/ssh/sshd_config
+        regexp: "^PasswordAuthentication"
+        line: "PasswordAuthentication no"
+        state: present
+      notify:
+        - Перезапуск службы ssh
+
+    - name: Создание директории в /opt/ с правами для пользователя
+      file:
+        path: /opt/fancyname
+        state: directory
+        owner: myusr
+        mode: '0755'
+
+  handlers:
+    - name: Перезапуск службы ssh
+      service:
+        name: sshd
+        state: restarted
+
